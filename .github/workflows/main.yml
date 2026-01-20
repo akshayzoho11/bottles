@@ -1,0 +1,57 @@
+name: vps
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: Change Hostname
+        run: sudo hostnamectl set-hostname akshayzoho11
+      
+      - name: Setup Wine, Virtual Display, and Bottles
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt-get update
+          sudo apt-get install -y wine64 wine32 xvfb python3-tk python3-dev gnome-screenshot
+          
+          # Install Flatpak and Bottles (this may fail or be very slow)
+          sudo apt-get install -y flatpak
+          sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          sudo flatpak install -y flathub com.usebottles.bottles
+          
+          # Start Xvfb to simulate a display
+          Xvfb :99 -screen 0 1280x720x24 > /dev/null 2>&1 &
+          echo "DISPLAY=:99" >> $GITHUB_ENV
+          
+          sleep 5
+      
+      - name: Create Bottle
+        run: |
+          # Try to create a bottle via CLI (may not work)
+          flatpak run com.usebottles.bottles --bottle-name "MQL5Bottle" --environment application || echo "Bottle creation failed, will try alternative"
+          sleep 3
+      
+      - name: Install Python Dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install pyautogui Pillow python-xlib
+      
+      - name: Run Python Script
+        run: python3 text.py
+      
+      - name: Upload Screenshots
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: screenshots
+          path: screenshots/
+
+      - name: Run VPS
+        run: curl -sSf https://sshx.io/get | sh -s run
